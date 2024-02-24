@@ -1,8 +1,7 @@
 let apiData = [];
 let apiMetaData = {};
-
+let apiUrl = `https://rickandmortyapi.com/api/character/?page=`; // API endpoint
 // Step 1: Fetch data from the API
-const apiUrl = 'https://rickandmortyapi.com/api/character/?page=1'; // API endpoint
 fetchData(apiUrl);
 
 function fetchData(url) {
@@ -14,12 +13,9 @@ function fetchData(url) {
       return response.json();
     })
     .then(data => {
-      console.log(data); // Log the fetched data to the console for now
       apiData = data.results;
       apiMetaData = data.info;
-      console.log(apiData, apiMetaData);
       displayDataTable(apiData); // Call function to display data in table
-      updatePaginationButtons(apiMetaData);
       addSearchFunctionality(apiData);
       addSortingFunctionality(apiData);
     })
@@ -33,36 +29,108 @@ function displayDataTable(characters) {
   const tableBody = document.getElementById('character-table-body');
   tableBody.innerHTML = ''; // Clear table body before displaying new data
   characters.forEach(character => {
-    tableBody.innerHTML += `
-      <tr>
-        <td>${character.name}</td>
-        <td><img src="${character.image}" alt="${character.name}" style="width: 50px;"></td>
-      </tr>
+    const row = document.createElement('tr');
+    row.innerHTML = `
+      <td>${character.name}</td>
+      <td><img src="${character.image}" alt="${character.name}" ></td>
+      <td>
+        <button class="edit-button" data-id="${character.id}">Edit</button>
+        <button class="delete-button" data-id="${character.id}">Delete</button>
+      </td>
     `;
+    tableBody.appendChild(row);
+    // Add event listener to edit button
+    const editButton = row.querySelector('.edit-button');
+    editButton.addEventListener('click', () => {
+      populateEditForm(character);
+    });
+    // Add event listener to delete button
+    const deleteButton = row.querySelector('.delete-button');
+    deleteButton.addEventListener('click', () => {
+      deleteCharacter(character.id);
+    });
   });
 }
 
-// Function to update pagination buttons
-function updatePaginationButtons(metaData) {
-  const nextButton = document.getElementById('next-page');
-  const prevButton = document.getElementById('prev-page');
-  
-  nextButton.addEventListener('click', () => {
-    if (metaData.next) {
-      fetchData(metaData.next); // Fetch data for the next page
-    } else {
-      nextButton.disabled = !metaData.next; // Disable next button if there's no next page   
-    }
-  });
-  
-  prevButton.addEventListener('click', () => {
-    if (metaData.prev) {
-      fetchData(metaData.prev); // Fetch data for the previous page
-    } else {
-      prevButton.disabled = !metaData.prev; // Disable previous button if there's no previous page
-    }
-  });
+// Function to populate edit form with character data
+function populateEditForm(character) {
+  document.getElementById('new-entry-name').value = character.name;
+  document.getElementById('new-entry-image').value = character.image;
+  document.getElementById('new-entry-form').setAttribute('data-id', character.id); // Set data-id attribute for identification during submission
 }
+
+// Function to clear form fields
+function clearForm() {
+  document.getElementById('new-entry-name').value = '';
+  document.getElementById('new-entry-image').value = '';
+  document.getElementById('new-entry-form').removeAttribute('data-id'); // Remove data-id attribute
+}
+
+// Event listener for new entry form submission (both new entry and edit)
+document.getElementById('new-entry-form').addEventListener('submit', (event) => {
+  event.preventDefault();
+  const name = document.getElementById('new-entry-name').value;
+  const image = document.getElementById('new-entry-image').value;
+  const id = document.getElementById('new-entry-form').getAttribute('data-id'); // Get data-id attribute
+  // Validate input
+  if (!name || !image) {
+    alert('Please provide both name and image URL.');
+    return;
+  }
+  if (id) {
+    // If data-id attribute exists, it's an edit operation
+    editCharacter(id, name, image);
+  } else {
+    // Otherwise, it's a new entry
+    addNewCharacter(name, image);
+  }
+});
+
+// Function to edit character
+function editCharacter(id, name, image) {
+  const index = apiData.findIndex(character => character.id === parseInt(id)); // Find index of character in apiData array
+  if (index !== -1) {
+    apiData[index].name = name;
+    apiData[index].image = image;
+    displayDataTable(apiData); // Re-render table
+    clearForm(); // Clear form after editing
+  }
+}
+
+// Function to add new character
+function addNewCharacter(name, image) {
+  const newEntry = { name, image, id: apiData.length + 1 }; // Assuming each entry has an ID
+  apiData.push(newEntry);
+  displayDataTable(apiData);
+  clearForm(); // Clear form after adding new character
+}
+
+// Function to delete character
+function deleteCharacter(id) {
+  apiData = apiData.filter(character => character.id !== id); // Remove character from apiData array
+  displayDataTable(apiData); // Re-render table
+}
+
+// Function to update pagination buttons
+const nextButton = document.getElementById('next-page');
+const prevButton = document.getElementById('prev-page');
+
+nextButton.addEventListener('click', () => {
+  if (apiMetaData.next) {
+    fetchData(apiMetaData.next); // Fetch data for the next page
+  } else {
+    nextButton.disabled = true; // Disable next button if there's no next page   
+  }
+});
+prevButton.addEventListener('click', () => {
+
+  if (apiMetaData.prev) {
+    fetchData(apiMetaData.prev); // Fetch data for the previous page
+  }
+  else {
+    prevButton.disabled = true; // Disable previous button if there's no previous page
+  }
+});
 
 // Function to handle search
 function addSearchFunctionality(data) {
@@ -75,7 +143,7 @@ function addSearchFunctionality(data) {
 
 // Function to handle sorting
 function addSortingFunctionality(data) {
-  const tableHeaders = document.querySelectorAll('#character-table thead th');
+  const tableHeaders = document.querySelectorAll('#character-table th');
   tableHeaders.forEach(header => {
     header.addEventListener('click', () => {
       const column = header.dataset.column;
